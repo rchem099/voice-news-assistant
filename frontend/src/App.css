@@ -1,0 +1,46 @@
+.home {
+  width: min(100% - 40px, 700px);
+  margin: 80px auto;
+  padding: 40px;
+  background: white;
+  border-radius: 20px;
+  text-align: center;
+}
+
+h1 {
+  font-size: 36px;
+  color: #183c30;
+}
+
+.buttons {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 32px 0;
+}
+
+button {
+  padding: 14px 22px;
+  border: none;
+  border-radius: 10px;
+  background: #245c45;
+  color: white;
+  font: inherit;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #173e2e;
+}
+
+button:focus-visible {
+  outline: 3px solid #71ad90;
+  outline-offset: 4px;
+}
+
+.message {
+  padding: 16px;
+  border-radius: 10px;
+  background: #edf4ef;
+}
