@@ -1,3 +1,4 @@
+import requests
 from flask import Flask, jsonify, g
 from auth import require_auth, SUPABASE_URL
 
@@ -57,6 +58,110 @@ def get_me():
         id=user_id,
         email=g.user.get("email"),
         profile=profiles[0] if profiles else None,
+    )
+
+    result.headers["Cache-Control"] = "no-store"
+
+    return result
+
+@app.get("/api/welcome")
+@require_auth
+def get_welcome():
+    user_id = g.user["id"]
+
+    try:
+        profile_response = requests.get(
+            f"{SUPABASE_URL}/rest/v1/profiles",
+            headers=g.supabase_headers,
+            params={
+                "id": f"eq.{user_id}",
+                "select": (
+                    "onboarding_completed,"
+                    "last_conversation_topic,"
+                    "last_conversation_at,"
+                    "timezone"
+                ),
+                "limit": "1",
+            },
+            timeout=10,
+        )
+
+        preferences_response = requests.get(
+            f"{SUPABASE_URL}/rest/v1/preferences",
+            headers=g.supabase_headers,
+            params={
+                "user_id": f"eq.{user_id}",
+                "select": "remember_history",
+                "limit": "1",
+            },
+            timeout=10,
+        )
+
+    except requests.RequestException:
+        return jsonify(
+            error="Unable to load your welcome message."
+        ), 503
+
+    for response in (profile_response, preferences_response):
+        if response.status_code in (401, 403):
+            return jsonify(
+                error="Access denied. Please sign in again."
+            ), 401
+
+        if response.status_code != 200:
+            return jsonify(
+                error="Unable to read your profile or preferences."
+            ), 502
+
+    try:
+        profiles = profile_response.json()
+        preferences = preferences_response.json()
+
+    except ValueError:
+        return jsonify(
+            error="Invalid response from the database."
+        ), 502
+
+    if not isinstance(profiles, list) or not isinstance(preferences, list):
+        return jsonify(
+            error="Unexpected database response."
+        ), 502
+
+    # An account without a profile receives the first greeting.
+    profile = profiles[0] if profiles else {}
+
+    remember_history = (
+        bool(preferences)
+        and preferences[0].get("remember_history") is True
+    )
+
+    onboarding_completed = (
+        profile.get("onboarding_completed") is True
+    )
+
+    # Do not use conversation memory if the user has disabled it.
+    previous_topic = (
+        profile.get("last_conversation_topic")
+        if remember_history
+        else None
+    )
+
+    previous_conversation_at = (
+        profile.get("last_conversation_at")
+        if remember_history
+        else None
+    )
+
+    message = build_welcome(
+        onboarding_completed=onboarding_completed,
+        previous_topic=previous_topic,
+        previous_conversation_at=previous_conversation_at,
+        timezone_name=profile.get("timezone") or "UTC",
+    )
+
+    result = jsonify(
+        message=message,
+        first_visit=not onboarding_completed,
     )
 
     result.headers["Cache-Control"] = "no-store"
