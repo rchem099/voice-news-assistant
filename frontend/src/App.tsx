@@ -1,5 +1,8 @@
 import { useState } from "react";
 import "./App.css";
+import ProfileTest from './components/ProfileTest'
+
+
 
 function App() {
   const [message, setMessage] = useState(
@@ -35,6 +38,8 @@ function App() {
   return (
     <main className="home">
       <h1>Mon actualité vocale</h1>
+      <ProfileTest />
+
 
       <p>Ton bulletin personnalisé, à écouter chaque jour.</p>
 
