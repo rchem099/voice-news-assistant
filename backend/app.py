@@ -1,4 +1,13 @@
+from services.article_selection import (
+    select_articles,
+    ArticleSelectionError,
+)
 import requests
+from services.welcome import build_welcome
+from services.briefing_plan import (
+    prepare_briefing_plan,
+    BriefingPlanError,
+)
 from flask import Flask, jsonify, g
 from auth import require_auth, SUPABASE_URL
 
@@ -163,6 +172,46 @@ def get_welcome():
         message=message,
         first_visit=not onboarding_completed,
     )
+
+    result.headers["Cache-Control"] = "no-store"
+
+    return result
+
+@app.get("/api/briefing-plan")
+@require_auth
+def get_briefing_plan():
+    try:
+        plan = prepare_briefing_plan(
+            supabase_url=SUPABASE_URL,
+            headers=g.supabase_headers,
+            user_id=g.user["id"],
+        )
+
+        # A pending briefing keeps its original content.
+        if plan["action"] == "prepare":
+            selection = select_articles(
+                supabase_url=SUPABASE_URL,
+                headers=g.supabase_headers,
+                user_id=g.user["id"],
+                plan=plan,
+            )
+
+            plan["selection"] = selection
+
+            if selection["selected_count"] == 0:
+                plan["selection_message"] = (
+                    "I couldn't find any new articles "
+                    "for this briefing in the sources available."
+                )
+            else:
+                plan["selection_message"] = (
+                    "Articles are available for your briefing."
+                )
+
+    except (BriefingPlanError, ArticleSelectionError) as error:
+        return jsonify(error=str(error)), 502
+
+    result = jsonify(plan)
 
     result.headers["Cache-Control"] = "no-store"
 
