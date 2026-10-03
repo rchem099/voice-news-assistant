@@ -6,21 +6,16 @@ import {
   speakEnglish,
   stopSpeech,
 } from '../services/speech'
+import QuestionRecorder from './QuestionRecorder'
 
-type WelcomeResponse = {
-  message: string
-  first_visit: boolean
+type Briefing = {
+  id: string
+  summary_text: string
+  status: 'ready' | 'in_progress' | 'completed'
 }
 
-type DraftResponse = {
-  action: 'draft' | 'resume' | 'no_articles'
-  message?: string
-  draft?: {
-    spoken_text: string
-  }
-  briefing?: {
-    summary_text: string
-  }
+type Startup = {
+  message: string
 }
 
 export default function AgentWelcome() {
@@ -30,21 +25,49 @@ export default function AgentWelcome() {
   const [speaking, setSpeaking] = useState(false)
   const [paused, setPaused] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [micBusy, setMicBusy] = useState(false)
+  const [loadingWelcome, setLoadingWelcome] = useState(true)
 
   const mounted = useRef(false)
   const generating = useRef(false)
+  const microphoneBusy = useRef(false)
+  const startupReady = useRef(false)
+  const currentBriefing = useRef<Briefing | null>(null)
+  const startupRequest = useRef<Promise<Startup> | null>(null)
 
-  // Réutiliser la même requête lors du double effet de StrictMode.
-  const welcomeRequest = useRef<Promise<WelcomeResponse> | null>(null)
+  function reportError(reason: unknown) {
+    if (!mounted.current) return
 
-  // Conserver le bulletin pendant que ce composant reste ouvert.
-  const cachedBriefing = useRef<string | null>(null)
+    setError(
+      reason instanceof Error ? reason.message : String(reason),
+    )
+  }
 
-  function playText(value: string) {
+  async function saveProgress(
+    id: string,
+    progress: 'in_progress' | 'completed',
+  ) {
+    await authenticatedFetch(`/briefings/${id}/progress`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ status: progress }),
+    })
+  }
+
+  function playText(
+    value: string,
+    briefing: Briefing | null = null,
+  ) {
+    if (microphoneBusy.current) return
+
     setError('')
     setPaused(false)
     setSpeaking(false)
     setStatus('Audio ready. Starting voice…')
+
+    let startRequest: Promise<boolean> | null = null
 
     void speakEnglish(value, {
       onStart: () => {
@@ -52,21 +75,57 @@ export default function AgentWelcome() {
 
         setSpeaking(true)
         setStatus('Speaking…')
+
+        // Une seule sauvegarde du début par lecture.
+        if (briefing && !startRequest) {
+          startRequest = saveProgress(
+            briefing.id,
+            'in_progress',
+          )
+            .then(() => true)
+            .catch((reason: unknown) => {
+              reportError(reason)
+              return false
+            })
+        }
       },
+
       onEnd: () => {
         if (!mounted.current) return
 
         setSpeaking(false)
         setPaused(false)
-        setStatus('Finished speaking.')
+
+        if (!briefing) {
+          setStatus('Finished speaking.')
+          return
+        }
+
+        setStatus('Saving listening progress…')
+
+        void (async () => {
+          if (!startRequest || !(await startRequest)) {
+            throw new Error(
+              'Listening progress was not saved. ' +
+              'This briefing remains unfinished.',
+            )
+          }
+
+          await saveProgress(briefing.id, 'completed')
+
+          if (mounted.current) {
+            setStatus('Briefing completed and saved.')
+          }
+        })().catch(reportError)
       },
+
       onError: (message) => {
         if (!mounted.current) return
 
         setSpeaking(false)
         setPaused(false)
         setError(message)
-        setStatus('Audio could not start.')
+        setStatus('Audio could not start or was interrupted.')
       },
     })
   }
@@ -75,44 +134,53 @@ export default function AgentWelcome() {
     mounted.current = true
     let active = true
 
-    if (!welcomeRequest.current) {
-      welcomeRequest.current = authenticatedFetch('/welcome')
-        .then(async (response) => {
-          const data: WelcomeResponse = await response.json()
+    if (!startupRequest.current) {
+      startupRequest.current = (async () => {
+        const welcomeResponse = await authenticatedFetch('/welcome')
+        const welcome = await welcomeResponse.json()
 
-          if (typeof data.message !== 'string' || !data.message.trim()) {
-            throw new Error('Invalid welcome message.')
-          }
+        const planResponse = await authenticatedFetch('/briefing-plan')
+        const plan = await planResponse.json()
 
-          return data
-        })
+        const message = plan.action === 'resume'
+          ? (
+              'Welcome back. You have an unfinished briefing. ' +
+              'Would you like to hear it again from the beginning?'
+            )
+          : welcome.message
+
+        if (typeof message !== 'string' || !message.trim()) {
+          throw new Error('Invalid welcome message.')
+        }
+
+        return { message }
+      })()
     }
 
-    void welcomeRequest.current
-      .then((welcome) => {
+    void startupRequest.current
+      .then((startup) => {
         if (!active) return
 
-        setText(welcome.message)
-        playText(welcome.message)
+        startupReady.current = true
+        setLoadingWelcome(false)
+        setText(startup.message)
+        currentBriefing.current = null
+        playText(startup.message)
       })
       .catch((reason: unknown) => {
         if (!active) return
 
-        setError(
-          reason instanceof Error
-            ? reason.message
-            : 'Unable to load your welcome.',
-        )
-        setStatus('Unable to start the assistant.')
+        setLoadingWelcome(false)
+        setStatus('Unable to load the welcome. Reload to retry.')
+        reportError(reason)
       })
 
     async function prepareBriefing() {
-      // Bloquer les déclenchements répétés pendant une génération.
-      if (generating.current) return
-
-      if (cachedBriefing.current) {
-        setText(cachedBriefing.current)
-        playText(cachedBriefing.current)
+      if (
+        !startupReady.current ||
+        generating.current ||
+        microphoneBusy.current
+      ) {
         return
       }
 
@@ -122,52 +190,47 @@ export default function AgentWelcome() {
       setPaused(false)
       setBusy(true)
       setError('')
-      setStatus('Finding news and preparing your briefing…')
+      setStatus('Finding or preparing your briefing…')
 
       try {
-        const response = await authenticatedFetch('/briefings/draft', {
+        const response = await authenticatedFetch('/briefings/listen', {
           method: 'POST',
         })
 
-        const data: DraftResponse = await response.json()
+        const result = await response.json()
 
         if (!active) return
 
-        if (data.action === 'no_articles') {
+        if (result.action === 'no_articles') {
+          currentBriefing.current = null
+
           const message =
-            data.message ?? 'No new articles are available.'
+            result.message ?? 'No new articles are available.'
 
           setText(message)
           playText(message)
           return
         }
 
-        const briefingText =
-          data.action === 'draft'
-            ? data.draft?.spoken_text
-            : data.action === 'resume'
-              ? data.briefing?.summary_text
-              : undefined
+        const briefing: Briefing = result.briefing
 
         if (
-          typeof briefingText !== 'string' ||
-          !briefingText.trim()
+          !briefing ||
+          typeof briefing.id !== 'string' ||
+          typeof briefing.summary_text !== 'string' ||
+          !briefing.summary_text.trim()
         ) {
-          throw new Error('The server returned no briefing text.')
+          throw new Error('Invalid saved briefing.')
         }
 
-        cachedBriefing.current = briefingText
-        setText(briefingText)
-        playText(briefingText)
-      } catch (reason: unknown) {
+        currentBriefing.current = briefing
+        setText(briefing.summary_text)
+        playText(briefing.summary_text, briefing)
+      } catch (reason) {
         if (!active) return
 
-        setError(
-          reason instanceof Error
-            ? reason.message
-            : 'Unable to prepare your briefing.',
-        )
-        setStatus('Briefing preparation failed.')
+        setStatus('Unable to prepare your briefing.')
+        reportError(reason)
       } finally {
         generating.current = false
 
@@ -177,26 +240,24 @@ export default function AgentWelcome() {
       }
     }
 
-    function handleBriefingRequest() {
+    function requestBriefing() {
       void prepareBriefing()
     }
 
-    // Déclencheur de test, à connecter ensuite au dialogue vocal.
     window.addEventListener(
       'assistant:briefing-requested',
-      handleBriefingRequest,
+      requestBriefing,
     )
 
     return () => {
       active = false
       mounted.current = false
+      stopSpeech()
 
       window.removeEventListener(
         'assistant:briefing-requested',
-        handleBriefingRequest,
+        requestBriefing,
       )
-
-      stopSpeech()
     }
   }, [])
 
@@ -219,6 +280,15 @@ export default function AgentWelcome() {
     setStatus('Stopped. Play voice restarts the current text.')
   }
 
+  function beforeRecording() {
+    stopPlayback()
+  }
+
+  function changeMicrophoneBusy(value: boolean) {
+    microphoneBusy.current = value
+    setMicBusy(value)
+  }
+
   return (
     <section aria-label="Your news assistant">
       <p>
@@ -232,15 +302,21 @@ export default function AgentWelcome() {
       <div className="buttons">
         <button
           type="button"
-          disabled={!text || busy || speaking}
-          onClick={() => playText(text)}
+          disabled={
+            !text ||
+            loadingWelcome ||
+            busy ||
+            speaking ||
+            micBusy
+          }
+          onClick={() => playText(text, currentBriefing.current)}
         >
           Play voice
         </button>
 
         <button
           type="button"
-          disabled={!speaking}
+          disabled={!speaking || micBusy}
           onClick={togglePause}
         >
           {paused ? 'Resume' : 'Pause'}
@@ -248,12 +324,18 @@ export default function AgentWelcome() {
 
         <button
           type="button"
-          disabled={!text || busy}
+          disabled={!text || busy || micBusy}
           onClick={stopPlayback}
         >
           Stop
         </button>
       </div>
+
+      <QuestionRecorder
+        disabled={busy || loadingWelcome}
+        onBeforeRecord={beforeRecording}
+        onBusyChange={changeMicrophoneBusy}
+      />
 
       <details>
         <summary>Show transcript</summary>

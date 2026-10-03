@@ -1,3 +1,11 @@
+import requests
+from flask import Flask, jsonify, g
+
+from auth import require_auth, SUPABASE_URL
+from listening import listening_api
+from questions import questions_api
+
+from services.welcome import build_welcome
 from services.briefing import (
     generate_written_briefing,
     BriefingGenerationError,
@@ -6,30 +14,37 @@ from services.article_selection import (
     select_articles,
     ArticleSelectionError,
 )
-import requests
-from services.welcome import build_welcome
 from services.briefing_plan import (
     prepare_briefing_plan,
     read_briefings,
     BriefingPlanError,
 )
-from flask import Flask, jsonify, g
-from auth import require_auth, SUPABASE_URL
+
 
 app = Flask(__name__)
+
+app.register_blueprint(listening_api)
+app.register_blueprint(questions_api)
+
+
+@app.errorhandler(413)
+def request_too_large(error):
+    return jsonify(
+        error="The uploaded file is too large."
+    ), 413
 
 
 @app.route("/api/health", methods=["GET"])
 def health():
     return jsonify({"ok": True})
 
+
 @app.get("/api/me")
 @require_auth
 def get_me():
-    # L’identité vient du jeton vérifié par Supabase.
+    # L'identité vient du jeton vérifié par Supabase.
     user_id = g.user["id"]
 
-    # Lire uniquement le profil de cet utilisateur.
     try:
         response = requests.get(
             f"{SUPABASE_URL}/rest/v1/profiles",
@@ -53,7 +68,10 @@ def get_me():
 
     if response.status_code != 200:
         return jsonify(
-            error="Impossible de lire le profil. Vérifie les tables et les règles RLS."
+            error=(
+                "Impossible de lire le profil. "
+                "Vérifie les tables et les règles RLS."
+            )
         ), 502
 
     try:
@@ -77,6 +95,7 @@ def get_me():
     result.headers["Cache-Control"] = "no-store"
 
     return result
+
 
 @app.get("/api/welcome")
 @require_auth
@@ -136,12 +155,14 @@ def get_welcome():
             error="Invalid response from the database."
         ), 502
 
-    if not isinstance(profiles, list) or not isinstance(preferences, list):
+    if (
+        not isinstance(profiles, list)
+        or not isinstance(preferences, list)
+    ):
         return jsonify(
             error="Unexpected database response."
         ), 502
 
-    # An account without a profile receives the first greeting.
     profile = profiles[0] if profiles else {}
 
     remember_history = (
@@ -153,7 +174,7 @@ def get_welcome():
         profile.get("onboarding_completed") is True
     )
 
-    # Do not use conversation memory if the user has disabled it.
+    # Utiliser la mémoire uniquement si l'utilisateur l'autorise.
     previous_topic = (
         profile.get("last_conversation_topic")
         if remember_history
@@ -182,6 +203,7 @@ def get_welcome():
 
     return result
 
+
 @app.get("/api/briefing-plan")
 @require_auth
 def get_briefing_plan():
@@ -192,7 +214,7 @@ def get_briefing_plan():
             user_id=g.user["id"],
         )
 
-        # A pending briefing keeps its original content.
+        # Un bulletin en attente conserve son contenu d'origine.
         if plan["action"] == "prepare":
             selection = select_articles(
                 supabase_url=SUPABASE_URL,
@@ -217,10 +239,10 @@ def get_briefing_plan():
         return jsonify(error=str(error)), 502
 
     result = jsonify(plan)
-
     result.headers["Cache-Control"] = "no-store"
 
     return result
+
 
 @app.post("/api/briefings/draft")
 @require_auth
