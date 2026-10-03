@@ -1,3 +1,4 @@
+import json
 import subprocess
 import threading
 import time
@@ -6,7 +7,18 @@ from collections import deque
 import imageio_ffmpeg
 from flask import Blueprint, g, jsonify, request
 
-from auth import require_auth
+from auth import SUPABASE_URL, require_auth
+from services.answers import answer_question, AnswerError
+from services.memory import (
+    handle_memory_command,
+    detect_topic,
+    memory_call,
+    MemoryError,
+)
+from services.transcription import (
+    transcribe_pcm,
+    TranscriptionError,
+)
 
 
 questions_api = Blueprint("questions_api", __name__)
@@ -14,8 +26,6 @@ questions_api = Blueprint("questions_api", __name__)
 MAX_AUDIO_BYTES = 8 * 1024 * 1024
 MAX_REQUEST_BYTES = 9 * 1024 * 1024
 
-# Limite pour le prototype local :
-# cinq tentatives par minute et par utilisateur.
 attempts = {}
 attempts_lock = threading.Lock()
 
@@ -123,8 +133,7 @@ def receive_question():
             error="The file could not be decoded as valid audio."
         ), 422
 
-    # Audio PCM : 16 000 échantillons par seconde,
-    # deux octets par échantillon, un canal.
+    # PCM : 16 000 échantillons/s, deux octets, un canal.
     duration = len(decoded.stdout) / (16000 * 2)
 
     if duration > 60:
@@ -137,15 +146,107 @@ def receive_question():
             error="The recording is too short."
         ), 422
 
+    # 1. Transcrire la question.
+    try:
+        transcript = transcribe_pcm(decoded.stdout)
+    except TranscriptionError as error:
+        return jsonify(error=str(error)), 422
+
+    # 2. Traiter les commandes de gestion de la mémoire.
+    try:
+        command = handle_memory_command(
+            transcript,
+            SUPABASE_URL,
+            g.supabase_headers,
+        )
+    except MemoryError as error:
+        return jsonify(error=str(error)), 502
+
+    if command is not None:
+        response = jsonify(
+            received=True,
+            transcript=transcript,
+            **command,
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return response
+
+    # 3. Valider le contexte de conversation.
+    try:
+        history = json.loads(
+            request.form.get("history", "[]")
+        )
+    except (ValueError, TypeError):
+        return jsonify(
+            error="Invalid conversation history."
+        ), 400
+
+    if (
+        not isinstance(history, list)
+        or len(history) > 8
+        or any(
+            not isinstance(item, dict)
+            or item.get("role") not in ("user", "assistant")
+            or not isinstance(item.get("content"), str)
+            or len(item["content"]) > 3000
+            for item in history
+        )
+    ):
+        return jsonify(
+            error="Invalid conversation history."
+        ), 400
+
+    # 4. Générer la réponse.
+    try:
+        result = answer_question(
+            question=transcript,
+            briefing_id=request.form.get("briefing_id"),
+            history=history,
+            supabase_url=SUPABASE_URL,
+            headers=g.supabase_headers,
+            user_id=g.user["id"],
+        )
+    except AnswerError as error:
+        return jsonify(
+            error=str(error),
+            transcript=transcript,
+        ), 502
+
+    # 5. Enregistrer le sujet si la mémoire est activée.
+    # La fonction SQL vérifie le consentement de l'utilisateur.
+    topic = detect_topic(transcript)
+
+    if topic is not None:
+        try:
+            memory_call(
+                SUPABASE_URL,
+                g.supabase_headers,
+                action="record",
+                topic=topic,
+            )
+        except MemoryError as error:
+            print(
+                f"Unable to save interest: {error}",
+                flush=True,
+            )
+
+            previous_warning = result.get("coverage_warning")
+            memory_warning = (
+                "Your answer is ready, but your interest "
+                "could not be saved."
+            )
+
+            result["coverage_warning"] = (
+                f"{previous_warning} {memory_warning}"
+                if previous_warning
+                else memory_warning
+            )
+
+    # 6. Envoyer la réponse au navigateur.
     response = jsonify(
         received=True,
-        bytes=len(audio),
-        duration_seconds=round(duration, 2),
-        message=(
-            "Audio received successfully. "
-            "Transcription is not connected yet."
-        ),
+        transcript=transcript,
+        **result,
     )
-
     response.headers["Cache-Control"] = "no-store"
     return response

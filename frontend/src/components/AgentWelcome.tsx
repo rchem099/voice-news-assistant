@@ -33,7 +33,9 @@ export default function AgentWelcome() {
   const microphoneBusy = useRef(false)
   const startupReady = useRef(false)
   const currentBriefing = useRef<Briefing | null>(null)
+  const conversationBriefingId = useRef<string | null>(null)
   const startupRequest = useRef<Promise<Startup> | null>(null)
+
 
   function reportError(reason: unknown) {
     if (!mounted.current) return
@@ -288,6 +290,13 @@ export default function AgentWelcome() {
     microphoneBusy.current = value
     setMicBusy(value)
   }
+    function handleAnswer(answer: string) {
+    setText(answer)
+    currentBriefing.current = null
+
+    // Une réponse à une question n'est pas un bulletin terminé.
+    playText(answer)
+  }
 
   return (
     <section aria-label="Your news assistant">
@@ -335,6 +344,8 @@ export default function AgentWelcome() {
         disabled={busy || loadingWelcome}
         onBeforeRecord={beforeRecording}
         onBusyChange={changeMicrophoneBusy}
+        getBriefingId={() => conversationBriefingId.current}
+        onAnswer={handleAnswer}
       />
 
       <details>

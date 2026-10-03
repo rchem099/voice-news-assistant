@@ -1,3 +1,8 @@
+from services.memory import (
+    memory_call,
+    interest_score,
+    MemoryError,
+)
 import re
 from datetime import timedelta
 
@@ -274,9 +279,13 @@ def select_articles(supabase_url, headers, user_id, plan):
             "preference_matches": matches,
             "selection_reason": reason,
         })
-
+    try:
+        memory = memory_call(supabase_url, headers)
+    except MemoryError as error:
+        raise ArticleSelectionError(str(error)) from error
     eligible.sort(
         key=lambda article: (
+            interest_score(article, preferences, memory),
             len(article["preference_matches"]),
             parse_timestamp(article["published_at"]),
         ),
