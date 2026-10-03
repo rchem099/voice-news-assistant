@@ -1,3 +1,7 @@
+from services.briefing import (
+    generate_written_briefing,
+    BriefingGenerationError,
+)
 from services.article_selection import (
     select_articles,
     ArticleSelectionError,
@@ -6,6 +10,7 @@ import requests
 from services.welcome import build_welcome
 from services.briefing_plan import (
     prepare_briefing_plan,
+    read_briefings,
     BriefingPlanError,
 )
 from flask import Flask, jsonify, g
@@ -212,6 +217,92 @@ def get_briefing_plan():
         return jsonify(error=str(error)), 502
 
     result = jsonify(plan)
+
+    result.headers["Cache-Control"] = "no-store"
+
+    return result
+
+@app.post("/api/briefings/draft")
+@require_auth
+def create_briefing_draft():
+    try:
+        plan = prepare_briefing_plan(
+            supabase_url=SUPABASE_URL,
+            headers=g.supabase_headers,
+            user_id=g.user["id"],
+        )
+
+        if plan["action"] == "resume":
+            result = jsonify(
+                action="resume",
+                message=plan["message"],
+                briefing=plan["briefing"],
+            )
+
+            result.headers["Cache-Control"] = "no-store"
+            return result
+
+        selection = select_articles(
+            supabase_url=SUPABASE_URL,
+            headers=g.supabase_headers,
+            user_id=g.user["id"],
+            plan=plan,
+        )
+
+        if not selection["articles"]:
+            result = jsonify(
+                action="no_articles",
+                message=(
+                    "I couldn't find any new articles "
+                    "in the available sources for this period."
+                ),
+                period_start=plan["period_start"],
+                period_end=plan["period_end"],
+            )
+
+            result.headers["Cache-Control"] = "no-store"
+            return result
+
+        previous_rows = read_briefings(
+            SUPABASE_URL,
+            g.supabase_headers,
+            {
+                "user_id": f"eq.{g.user['id']}",
+                "status": "eq.completed",
+                "select": "period_end,summary_text",
+                "order": "period_end.desc,id.desc",
+                "limit": "3",
+            },
+        )
+
+        previous_briefings = [
+            {
+                "period_end": row["period_end"],
+                "summary_excerpt": row["summary_text"][:1200],
+            }
+            for row in previous_rows
+        ]
+
+        draft = generate_written_briefing(
+            plan=plan,
+            selection=selection,
+            previous_briefings=previous_briefings,
+        )
+
+    except (
+        BriefingPlanError,
+        ArticleSelectionError,
+        BriefingGenerationError,
+    ) as error:
+        return jsonify(error=str(error)), 502
+
+    result = jsonify(
+        action="draft",
+        period_start=plan["period_start"],
+        period_end=plan["period_end"],
+        period_limited=plan["period_limited"],
+        draft=draft,
+    )
 
     result.headers["Cache-Control"] = "no-store"
 
