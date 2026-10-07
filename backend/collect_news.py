@@ -7,22 +7,24 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from services.news import fetch_news, NewsSourceError
+from services.news import NEWS_FEEDS, fetch_news, NewsSourceError
 from services.article_store import save_articles, ArticleStoreError
 
 
 BACKEND_DIR = Path(__file__).resolve().parent
-
 load_dotenv(BACKEND_DIR / ".env")
 
-CATEGORIES = ("world", "middle_east", "business")
+CATEGORIES = tuple(NEWS_FEEDS)
 INTERVAL_SECONDS = 30 * 60
 
 
 def collect_once():
     started_at = datetime.now(timezone.utc).isoformat()
 
-    print(f"\nCollection started: {started_at}", flush=True)
+    print(
+        f"\nCollection started: {started_at}",
+        flush=True,
+    )
 
     articles_by_url = {}
     failed_categories = []
@@ -30,7 +32,6 @@ def collect_once():
     for category in CATEGORIES:
         try:
             articles = fetch_news(category, limit=50)
-
         except NewsSourceError as error:
             print(
                 f"[ERROR] {category}: {error}",
@@ -59,7 +60,6 @@ def collect_once():
         saved_count = save_articles(
             list(articles_by_url.values())
         )
-
     except ArticleStoreError as error:
         print(f"[ERROR] {error}", flush=True)
         return False
@@ -69,9 +69,20 @@ def collect_once():
         flush=True,
     )
 
+    publishers = sorted({
+        article["source_name"]
+        for article in articles_by_url.values()
+    })
+
+    print(
+        f"Publishers collected: {', '.join(publishers)}",
+        flush=True,
+    )
+
     if failed_categories:
         print(
-            "Partial collection: some feeds failed.",
+            "Partial collection. Failed categories: "
+            + ", ".join(failed_categories),
             flush=True,
         )
         return False
@@ -90,7 +101,7 @@ def main():
 
     args = parser.parse_args()
 
-    # macOS: prevent two collectors from running simultaneously.
+    # Empêcher deux collecteurs de tourner simultanément sur macOS.
     lock_path = BACKEND_DIR / ".news-collector.lock"
 
     with lock_path.open("a") as lock_file:
@@ -99,7 +110,6 @@ def main():
                 lock_file.fileno(),
                 fcntl.LOCK_EX | fcntl.LOCK_NB,
             )
-
         except BlockingIOError:
             print("Another news collector is already running.")
             return 1
@@ -117,7 +127,6 @@ def main():
             while True:
                 collect_once()
                 time.sleep(INTERVAL_SECONDS)
-
         except KeyboardInterrupt:
             print("\nCollector stopped.")
             return 0
