@@ -6,8 +6,6 @@ Ask questions by voice, listen to spoken answers, and optionally let the assista
 
 ## Live demo
 
-[Open Voice News Assistant](https://among-surrounding-breakdown-medal.trycloudflare.com)
-
 **This is a temporary demo hosted on the developer's Mac.**
 
 - The application is available only while the Mac, backend, Ollama, and Cloudflare tunnel are running.

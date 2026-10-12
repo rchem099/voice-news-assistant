@@ -1,5 +1,6 @@
 import threading
 
+from services.timing import timed
 import numpy as np
 from faster_whisper import WhisperModel
 
@@ -11,7 +12,7 @@ class TranscriptionError(Exception):
 _model = None
 _lock = threading.Lock()
 
-
+@timed("Transcription")
 def transcribe_pcm(pcm_bytes):
     """
     Entrée :
