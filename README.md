@@ -4,15 +4,6 @@ An English-speaking AI news assistant built with React, Flask, and local AI mode
 
 Ask questions by voice, listen to spoken answers, and optionally let the assistant remember your news interests.
 
-## Live demo
-
-**This is a temporary demo hosted on the developer's Mac.**
-
-- The application is available only while the Mac, backend, Ollama, and Cloudflare tunnel are running.
-- The address changes when the tunnel is recreated.
-- Sign-in is required. New registrations depend on the email confirmation service being configured.
-- Allow microphone access and click **Play voice** if automatic playback is blocked.
-
 ## Features
 
 - Email and password authentication through Supabase.
