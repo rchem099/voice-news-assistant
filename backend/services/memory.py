@@ -2,6 +2,7 @@ import re
 
 import requests
 
+from services.timing import timed
 
 class MemoryError(Exception):
     pass
@@ -13,7 +14,7 @@ TOPIC_WORDS = {
     "politics": ["politics", "political", "election", "parliament"],
 }
 
-
+@timed("Memory database call")
 def memory_call(url, headers, action="status", topic=None, weight=None):
     try:
         response = requests.post(

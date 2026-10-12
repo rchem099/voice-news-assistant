@@ -10,3 +10,5 @@ __pycache__/
 
 .DS_Store
 backend/.news-collector.lock
+backend/.venv312/
+backend/cloudflared.tgz

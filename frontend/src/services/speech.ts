@@ -118,8 +118,13 @@ export async function speakEnglish(
   // Préférer une voix anglaise installée sur l’appareil.
   const voice =
     voices.find(
-      (item) => item.lang.startsWith('en') && item.localService,
-    ) ?? voices.find((item) => item.lang.startsWith('en'))
+      (item) => item.name === 'Google US English',
+    ) ??
+    voices.find(
+      (item) =>
+        item.name.startsWith('Reed') &&
+        item.lang === 'en-US',
+    )
 
   if (!voice) {
     callbacks.onError(
