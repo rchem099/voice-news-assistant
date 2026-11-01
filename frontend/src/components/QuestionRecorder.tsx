@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRecorder } from '../hooks/useRecorder'
 import { authenticatedFetch } from '../services/api'
+import Icon from './Icon'
 
 type Source = {
   id: string
@@ -20,7 +21,7 @@ type Props = {
   onBeforeRecord: () => void
   onBusyChange: (busy: boolean) => void
   getBriefingId: () => string | null
-  onAnswer: (answer: string) => void
+  onAnswer: (answer: string, sources: Source[]) => void
 }
 
 export default function QuestionRecorder({
@@ -35,7 +36,6 @@ export default function QuestionRecorder({
   const [message, setMessage] = useState('')
   const [transcript, setTranscript] = useState('')
   const [answer, setAnswer] = useState('')
-  const [sources, setSources] = useState<Source[]>([])
 
   const mounted = useRef(false)
   const locked = useRef(false)
@@ -98,7 +98,6 @@ export default function QuestionRecorder({
 
       setTranscript(result.transcript)
       setAnswer(result.answer)
-      setSources(Array.isArray(result.sources) ? result.sources : [])
       setMessage(result.coverage_warning ?? 'Answer ready.')
 
       if (result.clear_context === true) {
@@ -113,7 +112,7 @@ export default function QuestionRecorder({
 
       // Libérer le verrou du micro avant de faire parler l'agent.
       onBusyChange(false)
-      onAnswer(result.answer)
+      onAnswer(result.answer, Array.isArray(result.sources) ? result.sources : [])
     } catch (reason) {
       if (!mounted.current) return
 
@@ -139,7 +138,6 @@ export default function QuestionRecorder({
     setMessage('')
     setTranscript('')
     setAnswer('')
-    setSources([])
 
     onBeforeRecord()
     onBusyChange(true)
@@ -161,16 +159,10 @@ export default function QuestionRecorder({
   const requesting = recorder.state === 'requesting'
 
   return (
-    <section aria-label="Ask your news assistant">
-      <p>Ask a question in English. Maximum 60 seconds.</p>
-      <p>
-        To save topic interests, say “Remember my interests”.
-        Say “Disable memory”, “Show my preferences”,
-        or “Forget my history” to manage them.
-        Audio recordings and full transcripts are not saved.
-      </p>
-
+    <section className="card question-card" aria-labelledby="question-title">
+      <h2 id="question-title">What would you like to know?</h2>
       <button
+        className={`microphone-button ${recording ? 'is-recording' : ''}`}
         type="button"
         disabled={
           requesting ||
@@ -185,44 +177,25 @@ export default function QuestionRecorder({
           }
         }}
       >
-        {uploading
+        <span className="microphone-disc"><Icon name={recording ? 'stop' : 'mic'} /></span>
+        <span>{uploading
           ? 'Preparing answer…'
           : requesting
             ? 'Waiting for microphone permission…'
             : recording
               ? 'Finish my question'
-              : 'Ask a question'}
+              : 'Ask a question'}</span>
       </button>
+      <p className="recording-hint">Speak in English · Up to 60 seconds</p>
 
       {recording && <p role="status">Recording…</p>}
       {recorder.error && <p role="alert">{recorder.error}</p>}
       {message && <p role="status">{message}</p>}
 
       {transcript && <p><strong>I heard:</strong> {transcript}</p>}
-      {answer && <p>{answer}</p>}
+      {answer && <p className="question-answer">{answer}</p>}
 
-      {sources.length > 0 && (
-        <details>
-          <summary>Sources</summary>
-          <ul>
-            {sources
-              .filter((source) => /^https?:\/\//i.test(source.url))
-              .map((source) => (
-                <li key={source.id}>
-                  <a
-                    href={source.url}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    {source.source_name}: {source.title}
-                  </a>
-                  {' — '}
-                  {source.published_at}
-                </li>
-              ))}
-          </ul>
-        </details>
-      )}
+      <details className="memory-help"><summary>Voice commands & privacy</summary><p>Say “Remember my interests”, “Disable memory”, “Show my preferences” or “Forget my history” to manage interest memory. Audio recordings and full transcripts are not saved.</p></details>
     </section>
   )
 }

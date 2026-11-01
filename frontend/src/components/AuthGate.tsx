@@ -4,6 +4,8 @@ import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../services/supabase'
 import LoginForm from './LoginForm'
 import SignupForm from './SignupForm'
+import Brand from './Brand'
+import Icon from './Icon'
 
 type AuthGateProps = {
   children: ReactNode
@@ -115,7 +117,8 @@ export default function AuthGate({ children }: AuthGateProps) {
           textAlign: 'center',
         }}
       >
-        <h1>Mon actualité vocale</h1>
+        <Brand />
+        <h1 className="auth-title">Welcome to your newsroom.</h1>
 
         {errorMessage && (
           <p role="alert">{errorMessage}</p>
@@ -138,25 +141,14 @@ export default function AuthGate({ children }: AuthGateProps) {
 
   return (
     <>
-      <header
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '16px',
-          padding: '16px 24px',
-        }}
-      >
-        <span>Connecté : {session.user.email}</span>
-
-        <button
-          type="button"
-          onClick={handleLogout}
-          disabled={loggingOut}
-        >
-          {loggingOut ? 'Déconnexion…' : 'Me déconnecter'}
-        </button>
+      <header className="site-header">
+        <Brand />
+        <nav aria-label="Main navigation"><a className="active-nav" href="#today" aria-current="page">Today</a><a href="#interests">My Interests</a></nav>
+        <div className="account-controls">
+          <span className="avatar" title={session.user.email} aria-label={`Signed in as ${session.user.email}`}>{(session.user.email ?? 'U')[0].toUpperCase()}</span>
+          <button className="settings-button" aria-label="Settings" onClick={() => { window.dispatchEvent(new Event('companion:edit-interests')); document.getElementById('interests')?.scrollIntoView({ behavior: 'smooth' }) }}><Icon name="settings" /><span>Settings</span></button>
+          <button className="text-button logout-button" type="button" onClick={handleLogout} disabled={loggingOut}>{loggingOut ? 'Signing out…' : 'Sign out'}</button>
+        </div>
       </header>
 
       {errorMessage && (

@@ -7,6 +7,8 @@ import {
   stopSpeech,
 } from '../services/speech'
 import QuestionRecorder from './QuestionRecorder'
+import InterestsPanel from './InterestsPanel'
+import Icon from './Icon'
 
 type Briefing = {
   id: string
@@ -340,8 +342,9 @@ export default function AgentWelcome() {
     microphoneBusy.current = value
     setMicBusy(value)
   }
-  function handleAnswer(answer: string) {
-    setDailySources([])
+  function handleAnswer(answer: string, sources: DailySource[]) {
+    setDailySources(sources)
+    window.dispatchEvent(new Event('companion:interests-changed'))
     setCanExpandDaily(false)
     setText(answer)
     currentBriefing.current = null
@@ -351,94 +354,43 @@ export default function AgentWelcome() {
   }
 
   return (
-    <section aria-label="My News Companion">
-      <p>
-        You are speaking with an AI assistant using a synthetic voice.
-      </p>
-
-      <p role="status">{status}</p>
-
-      {error && <p role="alert">{error}</p>}
-
-      <p>Your daily briefing, based on your saved interests. About five minutes, in English.</p>
-      <button
-        type="button"
-        disabled={busy || loadingWelcome || micBusy}
-        onClick={() => { void playDailyNews() }}
-      >
-        {busy ? 'Preparing news…' : 'Play My News Today'}
-      </button>
-
-      {canExpandDaily && (
-        <button
-          type="button"
-          disabled={busy || micBusy}
-          onClick={() => { void playDailyNews(true) }}
-        >
-          Search recent news instead (7 days, then 30 days)
-        </button>
-      )}
-
-      <div className="buttons">
-        <button
-          type="button"
-          disabled={
-            !text ||
-            loadingWelcome ||
-            busy ||
-            speaking ||
-            micBusy
-          }
-          onClick={() => playText(text, currentBriefing.current)}
-        >
-          Play voice
-        </button>
-
-        <button
-          type="button"
-          disabled={!speaking || micBusy}
-          onClick={togglePause}
-        >
-          {paused ? 'Resume' : 'Pause'}
-        </button>
-
-        <button
-          type="button"
-          disabled={!text || busy || micBusy}
-          onClick={stopPlayback}
-        >
-          Stop
-        </button>
-      </div>
-
-      <QuestionRecorder
-        disabled={busy || loadingWelcome}
-        onBeforeRecord={beforeRecording}
-        onBusyChange={changeMicrophoneBusy}
-        getBriefingId={() => conversationBriefingId.current}
-        onAnswer={handleAnswer}
-      />
-
-      {dailySources.length > 0 && (
-        <details>
-          <summary>Today’s news sources</summary>
-          <ul>
-            {dailySources.filter((source) => /^https?:\/\//i.test(source.url)).map((source) => (
-              <li key={source.id}>
-                <a href={source.url} target="_blank" rel="noreferrer">
-                  {source.source_name}: {source.title}
-                </a>
-                {' — '}{source.published_at}
-              </li>
+    <div className="dashboard-grid">
+      <div className="main-column">
+        <section className="card briefing-card" aria-labelledby="briefing-title">
+          <span className="eyebrow">TODAY’S BRIEFING</span>
+          <h2 id="briefing-title">{busy ? 'Your briefing is on its way.' : speaking ? (paused ? 'A moment to pause.' : 'Your world, on air.') : 'Ready when you are.'}</h2>
+          <p className="briefing-meta">About 5 minutes <span aria-hidden="true">·</span> English</p>
+          <div className={`waveform ${speaking && !paused ? 'is-playing' : ''}`} aria-hidden="true">
+            {[5, 5, 7, 14, 24, 34, 25, 32, 48, 72, 56, 35, 22, 35, 55, 83, 110, 88, 61, 40, 25, 34, 48, 66, 45, 28, 20, 15, 8, 5, 5].map((height, index) => (
+              <span key={index} style={{ height, animationDelay: `${index * 0.06}s` }} className={index >= 14 && index <= 18 ? 'wave-accent' : ''} />
             ))}
-          </ul>
-        </details>
-      )}
-
-      <details>
-        <summary>Show transcript</summary>
-        <p style={{ whiteSpace: 'pre-wrap' }}>{text}</p>
-      </details>
-    </section>
+          </div>
+          <button className="primary-play" disabled={busy || loadingWelcome || micBusy} onClick={() => { void playDailyNews() }}>
+            <Icon name="play" />{busy ? 'Preparing news…' : 'Play My News Today'}
+          </button>
+          <p className="player-hint">We check recent sources before preparing your briefing.</p>
+          <p className="player-status" role="status">{status}</p>
+          {error && <p className="inline-error" role="alert">{error}</p>}
+          {canExpandDaily && <button className="secondary-button expand-button" disabled={busy || micBusy} onClick={() => { void playDailyNews(true) }}>Search recent news instead (7 days, then 30 days)</button>}
+          <div className="playback-controls">
+            <button className="secondary-button" disabled={!text || loadingWelcome || busy || speaking || micBusy} onClick={() => playText(text, currentBriefing.current)}><Icon name="play" />Play voice</button>
+            <button className="secondary-button" disabled={!speaking || micBusy} onClick={togglePause}><Icon name={paused ? 'play' : 'pause'} />{paused ? 'Resume' : 'Pause'}</button>
+            <button className="secondary-button" disabled={!text || busy || micBusy} onClick={stopPlayback}><Icon name="stop" />Stop</button>
+          </div>
+        </section>
+        <QuestionRecorder disabled={busy || loadingWelcome} onBeforeRecord={beforeRecording} onBusyChange={changeMicrophoneBusy} getBriefingId={() => conversationBriefingId.current} onAnswer={handleAnswer} />
+        <details className="card transcript-panel"><summary><Icon name="file" />Show transcript</summary><p>{text || 'Your briefing and answers will appear here.'}</p></details>
+      </div>
+      <aside className="side-column">
+        <InterestsPanel />
+        <section className="card sources-card" aria-labelledby="sources-title">
+          <h2 id="sources-title">Sources you can check</h2>
+          <p>Links to original reporting, so you can explore further.</p>
+          {dailySources.length ? <ul className="source-list">{dailySources.filter((source) => /^https?:\/\//i.test(source.url)).map((source) => (
+            <li key={source.id}><span className="source-publisher">{source.source_name}</span><a href={source.url} target="_blank" rel="noreferrer">{source.title}<Icon name="link" /></a><time dateTime={source.published_at}>{source.published_at}</time></li>
+          ))}</ul> : <div className="sources-empty"><span className="sources-illustration"><Icon name="file" /><span><Icon name="link" /></span></span><p>Links and publication dates appear here after your briefing or answer.</p></div>}
+        </section>
+      </aside>
+    </div>
   )
 }
