@@ -218,3 +218,48 @@ Interest tracking requires consent. Disabling memory stops inferred-interest tra
 - AI answers can contain mistakes; consult the linked sources.
 - This prototype is not designed for a large number of simultaneous users.
 - The public demo URL is temporary and is not permanent hosting.
+## Questions d’actualité : recherche web
+
+Le parcours des questions utilise désormais l’API OpenAI Responses avec
+`web_search` obligatoire, sans filtre limitant la recherche à un média.
+`OPENAI_SEARCH_MODEL` permet de choisir le modèle de recherche ; sinon le
+modèle `OPENAI_MODEL` est utilisé (par défaut `gpt-4.1-mini`, compatible).
+Un échec de recherche ou un modèle incompatible bloque la réponse : aucun
+repli sur les connaissances du modèle ou les anciens flux RSS.
+
+Sans période explicite, la recherche porte sur sept dates calendaires,
+aujourd’hui compris. Sans nouvelle pertinente datée et citée, elle est
+relancée sur trente dates calendaires et cet élargissement est annoncé
+oralement et affiché. Les périodes explicites ne sont jamais élargies.
+Les dates relatives sont interprétées dans le fuseau America/Toronto.
+
+Chaque nouvelle est présentée en anglais avec le domaine de la source
+et sa date de publication. Les liens et titres viennent des annotations
+de citation de l’outil web ; les URL proposées uniquement par la génération
+sont rejetées. Les liens sont affichés dans le volet Sources existant.
+La lecture conserve la sélection de voix anglaise d’origine : Google US
+English en priorité, puis Reed en-US. Les réponses et les bulletins sont en anglais.
+
+La transcription reste locale et inchangée : `faster-whisper`, `base.en`,
+questions vocales en anglais. Les réponses aux questions sont en anglais.
+L’audio n’est pas envoyé à OpenAI ; la question transcrite et son contexte
+conversationnel sont transmis pour la recherche et la rédaction.
+
+Limites : la recherche n’est pas exhaustive. La pertinence, la fiabilité,
+l’interprétation des périodes explicites et l’extraction des dates sont
+évaluées par le modèle. Les dates extraites sont filtrées côté serveur,
+mais leur exactitude sémantique et les faits ne peuvent pas être garantis
+par ce filtrage. La recherche web ne fournit pas ici de filtre temporel
+strict : les bornes sont transmises aux instructions, puis contrôlées sur
+les résultats extraits. Les pages sans date vérifiable sont exclues.
+Plusieurs appels OpenAI sont nécessaires, avec coût et latence supplémentaires.
+
+Validation locale (sans appels OpenAI ni Supabase) :
+
+```sh
+cd backend
+python -m unittest discover -s tests -v
+cd ../frontend
+npm run build
+npm run lint
+```

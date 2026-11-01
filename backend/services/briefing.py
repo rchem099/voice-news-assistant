@@ -1,6 +1,9 @@
 import json
 import os
-
+from services.openai_generation import (
+    generate_structured,
+    GenerationError,
+)
 import requests
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
@@ -151,78 +154,16 @@ def generate_written_briefing(
         "http://localhost:11434",
     ).rstrip("/")
 
-    model = os.getenv(
-        "OLLAMA_MODEL",
-        "qwen3:4b",
-    )
-
     try:
-        response = requests.post(
-            f"{ollama_url}/api/chat",
-            json={
-                "model": model,
-                "stream": False,
-                "think": False,
-                "format": schema,
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": SYSTEM_PROMPT,
-                    },
-                    {
-                        "role": "user",
-                        "content": user_message,
-                    },
-                ],
-                "options": {
-                    "temperature": 0,
-                    "num_ctx": 8192,
-                    "num_predict": 1800,
-                },
-            },
-            timeout=(10, 300),
+        draft = generate_structured(
+            system_prompt=SYSTEM_PROMPT,
+            user_message=user_message,
+            output_type=WrittenBriefing,
+            max_output_tokens=1800,
         )
 
-    except requests.Timeout as error:
-        raise BriefingGenerationError(
-            "Ollama took too long to respond. "
-            "Check the model and your Mac's available memory."
-        ) from error
-
-    except requests.RequestException as error:
-        raise BriefingGenerationError(
-            "Unable to contact Ollama. "
-            "Check that the Ollama application is running."
-        ) from error
-
-    if not response.ok:
-        raise BriefingGenerationError(
-            f"Ollama returned HTTP {response.status_code}. "
-            "Check that qwen3:4b is installed."
-        )
-
-    try:
-        payload = response.json()
-
-        if not isinstance(payload, dict):
-            raise ValueError("Unexpected Ollama response.")
-
-        if payload.get("done") is not True:
-            raise ValueError("The generation did not finish.")
-
-        if payload.get("done_reason") == "length":
-            raise ValueError("The generation reached its length limit.")
-
-        content = payload["message"]["content"]
-
-        draft = WrittenBriefing.model_validate_json(content)
-
-    except (ValueError, KeyError, TypeError, ValidationError) as error:
-        raise BriefingGenerationError(
-            "Ollama returned an incomplete or invalid briefing. "
-            "Try generating it again."
-        ) from error
-
+    except GenerationError as error:
+        raise BriefingGenerationError(str(error)) from error
     result = draft.model_dump()
 
     # Resolve sources from our database records.
