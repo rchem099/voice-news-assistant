@@ -63,7 +63,7 @@ Do not force three topics if the material does not support them.
 Combine articles about the same development where appropriate.
 
 Use short, natural sentences suitable for speech.
-Attribute reported claims to the source when appropriate.
+For every development, state the source and publication date naturally for speech.
 Do not invent figures, quotes, causes, consequences or sources.
 Do not add your own analysis.
 Preserve uncertainty expressed in the source material.
@@ -113,7 +113,7 @@ def generate_written_briefing(
     # A word target is approximate, not an audio duration guarantee.
     target_words = max(
         60,
-        min(420, round(duration / 60 * 130)),
+        min(650, round(duration / 60 * 130)),
     )
 
     evidence = [
@@ -159,7 +159,7 @@ def generate_written_briefing(
             system_prompt=SYSTEM_PROMPT,
             user_message=user_message,
             output_type=WrittenBriefing,
-            max_output_tokens=1800,
+            max_output_tokens=3000 if duration >= 300 else 1800,
         )
 
     except GenerationError as error:

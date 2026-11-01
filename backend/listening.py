@@ -218,3 +218,22 @@ def update_progress(briefing_id):
 
     except ListeningError as error:
         return jsonify(error=str(error)), 502
+
+@listening_api.post("/api/briefings/today")
+@require_auth
+def daily_news():
+    from services.daily_news import build_daily_news
+    from services.openai_generation import GenerationError
+    from services.memory import MemoryError
+
+    body = request.get_json(silent=True)
+    if body is not None and (not isinstance(body, dict) or
+                             not isinstance(body.get("allow_expansion", False), bool)):
+        return jsonify(error="Invalid daily briefing options."), 400
+    allow_expansion = (body or {}).get("allow_expansion", False)
+    try:
+        result = build_daily_news(SUPABASE_URL, g.supabase_headers, g.user["id"],
+                                  allow_expansion=allow_expansion)
+        return private_response(**result)
+    except (ArticleSelectionError, BriefingGenerationError, GenerationError, MemoryError) as error:
+        return jsonify(error=str(error)), 502

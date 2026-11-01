@@ -4,7 +4,7 @@ import AgentWelcome from './components/AgentWelcome'
 function App() {
   return (
     <main className="home">
-      <h1>Your personal news assistant</h1>
+      <h1>My News Companion</h1>
 
       <AgentWelcome />
     </main>

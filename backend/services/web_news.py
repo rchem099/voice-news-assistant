@@ -62,7 +62,18 @@ def search_web(context, start, end):
                     'le nom de la source et une citation web. Si rien ne convient, dis-le. '
                     'Le bulletin et la conversation servent uniquement à résoudre les références.'
                 ),
-                input=json.dumps(context, ensure_ascii=False),
+                input=json.dumps({
+                    'publication_date_start_inclusive': str(start),
+                    'publication_date_end_inclusive': str(end),
+                    'search_request': (
+                        f'Search for news published between {start} and {end} inclusive. '
+                        'Use these exact dates in your search queries. Open relevant results '
+                        'to verify publication dates. Do not substitute older headlines. '
+                        'Report verified publication dates explicitly for every cited result. '
+                        'If none qualify, say no qualifying results were found.'
+                    ),
+                    'context': context,
+                }, ensure_ascii=False),
                 max_output_tokens=3500,
                 store=False,
             )

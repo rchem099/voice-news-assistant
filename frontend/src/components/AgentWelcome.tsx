@@ -14,12 +14,22 @@ type Briefing = {
   status: 'ready' | 'in_progress' | 'completed'
 }
 
+type DailySource = {
+  id: string
+  title: string
+  url: string
+  source_name: string
+  published_at: string
+}
+
 type Startup = {
   message: string
 }
 
 export default function AgentWelcome() {
   const [text, setText] = useState('')
+  const [dailySources, setDailySources] = useState<DailySource[]>([])
+  const [canExpandDaily, setCanExpandDaily] = useState(false)
   const [status, setStatus] = useState('Preparing your welcome…')
   const [error, setError] = useState('')
   const [speaking, setSpeaking] = useState(false)
@@ -263,6 +273,46 @@ export default function AgentWelcome() {
     }
   }, [])
 
+  async function playDailyNews(allowExpansion = false) {
+    if (generating.current || microphoneBusy.current) return
+    generating.current = true
+    stopSpeech()
+    setSpeaking(false)
+    setPaused(false)
+    setBusy(true)
+    setError('')
+    setDailySources([])
+    setCanExpandDaily(false)
+    setStatus('Finding today’s news for your saved interests and preparing a five-minute briefing…')
+    try {
+      const response = await authenticatedFetch('/briefings/today', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ allow_expansion: allowExpansion }),
+      })
+      const result = await response.json()
+      if (!mounted.current) return
+      const spoken = result.action === 'daily' ? result.spoken_text : result.message
+      if (typeof spoken !== 'string' || !spoken.trim()) {
+        throw new Error('The server returned an invalid daily briefing.')
+      }
+      currentBriefing.current = null
+      conversationBriefingId.current = null
+      setText(spoken)
+      setCanExpandDaily(result.can_expand === true)
+      setDailySources(Array.isArray(result.sources) ? result.sources : [])
+      playText(spoken)
+    } catch (reason) {
+      if (mounted.current) {
+        setStatus('Unable to prepare today’s news.')
+        reportError(reason)
+      }
+    } finally {
+      generating.current = false
+      if (mounted.current) setBusy(false)
+    }
+  }
+
   function togglePause() {
     if (paused) {
       resumeSpeech()
@@ -290,7 +340,9 @@ export default function AgentWelcome() {
     microphoneBusy.current = value
     setMicBusy(value)
   }
-    function handleAnswer(answer: string) {
+  function handleAnswer(answer: string) {
+    setDailySources([])
+    setCanExpandDaily(false)
     setText(answer)
     currentBriefing.current = null
 
@@ -299,7 +351,7 @@ export default function AgentWelcome() {
   }
 
   return (
-    <section aria-label="Your news assistant">
+    <section aria-label="My News Companion">
       <p>
         You are speaking with an AI assistant using a synthetic voice.
       </p>
@@ -307,6 +359,25 @@ export default function AgentWelcome() {
       <p role="status">{status}</p>
 
       {error && <p role="alert">{error}</p>}
+
+      <p>Your daily briefing, based on your saved interests. About five minutes, in English.</p>
+      <button
+        type="button"
+        disabled={busy || loadingWelcome || micBusy}
+        onClick={() => { void playDailyNews() }}
+      >
+        {busy ? 'Preparing news…' : 'Play My News Today'}
+      </button>
+
+      {canExpandDaily && (
+        <button
+          type="button"
+          disabled={busy || micBusy}
+          onClick={() => { void playDailyNews(true) }}
+        >
+          Search recent news instead (7 days, then 30 days)
+        </button>
+      )}
 
       <div className="buttons">
         <button
@@ -347,6 +418,22 @@ export default function AgentWelcome() {
         getBriefingId={() => conversationBriefingId.current}
         onAnswer={handleAnswer}
       />
+
+      {dailySources.length > 0 && (
+        <details>
+          <summary>Today’s news sources</summary>
+          <ul>
+            {dailySources.filter((source) => /^https?:\/\//i.test(source.url)).map((source) => (
+              <li key={source.id}>
+                <a href={source.url} target="_blank" rel="noreferrer">
+                  {source.source_name}: {source.title}
+                </a>
+                {' — '}{source.published_at}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
 
       <details>
         <summary>Show transcript</summary>

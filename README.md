@@ -1,4 +1,4 @@
-# Voice News Assistant
+# My News Companion
 
 An English-speaking AI news assistant built with React, Flask, and local AI models.
 
@@ -263,3 +263,26 @@ cd ../frontend
 npm run build
 npm run lint
 ```
+
+
+## Play My News Today
+
+The daily-news button reads the signed-in user's topics, countries and interest
+memory from Supabase, then searches the web for matching news published today
+in the user's profile timezone (America/Toronto by default). Explicit negative
+weights exclude a topic; inferred interests are used only with memory enabled.
+No interests or no verified dated coverage produces an honest spoken explanation.
+
+The target is about 650 words / five minutes at 130 words per minute. Actual
+browser voice timing varies; limited coverage produces a shorter briefing with
+a spoken notice. The existing English voice, pause, resume and replay are kept.
+Source links appear below the player. This mode generates speech in the browser,
+not a downloadable audio file. The daily briefing stays in the current page;
+it does not change the saved briefing's listening progress. Questions and the
+existing saved-briefing flow remain available.
+
+When today-only search has no usable results, the player offers **Search recent
+news instead (7 days, then 30 days)**. This is an explicit opt-in: the primary
+button never expands silently. The expanded briefing announces its date range
+and does not label older coverage as today's events. Date filtering remains
+based on publication dates extracted from cited web evidence.
