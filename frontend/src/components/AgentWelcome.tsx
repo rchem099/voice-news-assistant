@@ -9,6 +9,7 @@ import {
 import QuestionRecorder from './QuestionRecorder'
 import InterestsPanel from './InterestsPanel'
 import Icon from './Icon'
+import LoadingPlanet from './LoadingPlanet'
 
 type Briefing = {
   id: string
@@ -360,16 +361,16 @@ export default function AgentWelcome() {
           <span className="eyebrow">TODAY’S BRIEFING</span>
           <h2 id="briefing-title">{busy ? 'Your briefing is on its way.' : speaking ? (paused ? 'A moment to pause.' : 'Your world, on air.') : 'Ready when you are.'}</h2>
           <p className="briefing-meta">About 5 minutes <span aria-hidden="true">·</span> English</p>
-          <div className={`waveform ${speaking && !paused ? 'is-playing' : ''}`} aria-hidden="true">
+          {busy ? <LoadingPlanet label="Preparing your briefing" /> : <div className={`waveform ${speaking && !paused ? 'is-playing' : ''}`} aria-hidden="true">
             {[5, 5, 7, 14, 24, 34, 25, 32, 48, 72, 56, 35, 22, 35, 55, 83, 110, 88, 61, 40, 25, 34, 48, 66, 45, 28, 20, 15, 8, 5, 5].map((height, index) => (
               <span key={index} style={{ height, animationDelay: `${index * 0.06}s` }} className={index >= 14 && index <= 18 ? 'wave-accent' : ''} />
             ))}
-          </div>
+          </div>}
           <button className="primary-play" disabled={busy || loadingWelcome || micBusy} onClick={() => { void playDailyNews() }}>
             <Icon name="play" />{busy ? 'Preparing news…' : 'Play My News Today'}
           </button>
           <p className="player-hint">We check recent sources before preparing your briefing.</p>
-          <p className="player-status" role="status">{status}</p>
+          {!busy && <p className="player-status" role="status">{status}</p>}
           {error && <p className="inline-error" role="alert">{error}</p>}
           {canExpandDaily && <button className="secondary-button expand-button" disabled={busy || micBusy} onClick={() => { void playDailyNews(true) }}>Search recent news instead (7 days, then 30 days)</button>}
           <div className="playback-controls">

@@ -27,12 +27,12 @@ export default function ProfileTest() {
       const user: MeResponse = await response.json()
 
       setResult(user)
-      setMessage('Flask a reconnu ton compte.')
+      setMessage('Your account was verified.')
     } catch (error) {
       setMessage(
         error instanceof Error
           ? error.message
-          : 'Impossible de joindre Flask.'
+          : 'Unable to reach the server.'
       )
     } finally {
       setLoading(false)
@@ -41,14 +41,14 @@ export default function ProfileTest() {
 
   return (
     <section>
-      <h2>Tester la route protégée</h2>
+      <h2>Test the protected route</h2>
 
       <button
         type="button"
         onClick={testPrivateRoute}
         disabled={loading}
       >
-        {loading ? 'Vérification…' : 'Vérifier mon identité avec Flask'}
+        {loading ? 'Checking…' : 'Verify my identity'}
       </button>
 
       <p role="status">{message}</p>

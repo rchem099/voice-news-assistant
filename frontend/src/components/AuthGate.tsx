@@ -48,7 +48,7 @@ export default function AuthGate({ children }: AuthGateProps) {
 
         if (error) {
           setErrorMessage(
-            'Impossible de restaurer ta session. Recharge la page.'
+            'Unable to restore your session. Please reload the page.'
           )
         } else {
           setSession(data.session)
@@ -56,7 +56,7 @@ export default function AuthGate({ children }: AuthGateProps) {
       } catch {
         if (active && !receivedAuthEvent) {
           setErrorMessage(
-            'Impossible de vérifier ta session. Recharge la page.'
+            'Unable to verify your session. Please reload the page.'
           )
         }
       } finally {
@@ -89,7 +89,7 @@ export default function AuthGate({ children }: AuthGateProps) {
       setShowSignup(false)
     } catch {
       setErrorMessage(
-        'La déconnexion a échoué. Réessaie.'
+        'Sign out failed. Please try again.'
       )
     } finally {
       setLoggingOut(false)
@@ -99,7 +99,7 @@ export default function AuthGate({ children }: AuthGateProps) {
   if (loading) {
     return (
       <main style={{ padding: '40px', textAlign: 'center' }}>
-        <p role="status">Vérification de ta session…</p>
+        <p role="status">Checking your session…</p>
       </main>
     )
   }
@@ -132,8 +132,8 @@ export default function AuthGate({ children }: AuthGateProps) {
           style={{ marginTop: '20px' }}
         >
           {showSignup
-            ? 'J’ai déjà un compte : me connecter'
-            : 'Créer un compte'}
+            ? 'Already have an account? Sign in'
+            : 'Create an account'}
         </button>
       </main>
     )

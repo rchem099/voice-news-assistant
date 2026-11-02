@@ -14,7 +14,7 @@ export default function SignupForm() {
     setMessage('')
 
     if (password !== confirmation) {
-      setMessage('Les deux mots de passe ne correspondent pas.')
+      setMessage('The passwords do not match.')
       return
     }
 
@@ -34,10 +34,10 @@ export default function SignupForm() {
       }
 
       if (data.session) {
-        setMessage('Inscription réussie. Une session est ouverte.')
+        setMessage('Account created. You are now signed in.')
       } else {
         setMessage(
-          'Demande envoyée. Consulte ta boîte e-mail pour confirmer ton inscription. Si tu as déjà un compte, utilise la connexion.'
+          'Request sent. Check your inbox to confirm your email address. If you already have an account, sign in instead.'
         )
       }
 
@@ -47,7 +47,7 @@ export default function SignupForm() {
       setMessage(
         error instanceof Error
           ? error.message
-          : 'Une erreur est survenue. Réessaie.'
+          : 'Something went wrong. Please try again.'
       )
     } finally {
       setLoading(false)
@@ -56,7 +56,7 @@ export default function SignupForm() {
 
   return (
     <section>
-      <h2>Créer mon compte</h2>
+      <h2>Create my account</h2>
 
       <form
         onSubmit={handleSignup}
@@ -69,7 +69,7 @@ export default function SignupForm() {
         }}
       >
         <label>
-          Adresse e-mail
+          Email address
           <input
             type="email"
             autoComplete="email"
@@ -81,7 +81,7 @@ export default function SignupForm() {
         </label>
 
         <label>
-          Mot de passe — 8 caractères minimum
+          Password — at least 8 characters
           <input
             type="password"
             autoComplete="new-password"
@@ -94,7 +94,7 @@ export default function SignupForm() {
         </label>
 
         <label>
-          Confirmer le mot de passe
+          Confirm password
           <input
             type="password"
             autoComplete="new-password"
@@ -107,7 +107,7 @@ export default function SignupForm() {
         </label>
 
         <button type="submit" disabled={loading}>
-          {loading ? 'Inscription en cours…' : 'Créer mon compte'}
+          {loading ? 'Creating your account…' : 'Create my account'}
         </button>
 
         <p role="status" aria-live="polite">

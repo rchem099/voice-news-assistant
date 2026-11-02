@@ -5,7 +5,7 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
 
 if (!supabaseUrl || !supabaseKey) {
   throw new Error(
-    'Configuration Supabase manquante : vérifie frontend/.env.'
+    'Supabase configuration is missing. Check frontend/.env.'
   )
 }
 

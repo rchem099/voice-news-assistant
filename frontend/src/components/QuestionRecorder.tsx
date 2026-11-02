@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRecorder } from '../hooks/useRecorder'
 import { authenticatedFetch } from '../services/api'
 import Icon from './Icon'
+import LoadingPlanet from './LoadingPlanet'
 
 type Source = {
   id: string
@@ -161,7 +162,7 @@ export default function QuestionRecorder({
   return (
     <section className="card question-card" aria-labelledby="question-title">
       <h2 id="question-title">What would you like to know?</h2>
-      <button
+      {!uploading && <button
         className={`microphone-button ${recording ? 'is-recording' : ''}`}
         type="button"
         disabled={
@@ -177,7 +178,7 @@ export default function QuestionRecorder({
           }
         }}
       >
-        <span className="microphone-disc"><Icon name={recording ? 'stop' : 'mic'} /></span>
+        {!uploading && <span className="microphone-disc"><Icon name={recording ? 'stop' : 'mic'} /></span>}
         <span>{uploading
           ? 'Preparing answer…'
           : requesting
@@ -185,12 +186,12 @@ export default function QuestionRecorder({
             : recording
               ? 'Finish my question'
               : 'Ask a question'}</span>
-      </button>
-      <p className="recording-hint">Speak in English · Up to 60 seconds</p>
+      </button>}
+      {!uploading && <p className="recording-hint">Speak in English · Up to 60 seconds</p>}
 
       {recording && <p role="status">Recording…</p>}
       {recorder.error && <p role="alert">{recorder.error}</p>}
-      {message && <p role="status">{message}</p>}
+      {uploading ? <LoadingPlanet label="Preparing your answer" /> : message && <p role="status">{message}</p>}
 
       {transcript && <p><strong>I heard:</strong> {transcript}</p>}
       {answer && <p className="question-answer">{answer}</p>}

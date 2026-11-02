@@ -58,19 +58,19 @@ def get_me():
         )
     except requests.RequestException:
         return jsonify(
-            error="Impossible de joindre la base de données."
+            error="Unable to reach the database."
         ), 503
 
     if response.status_code in (401, 403):
         return jsonify(
-            error="Accès au profil refusé."
+            error="Profile access denied."
         ), response.status_code
 
     if response.status_code != 200:
         return jsonify(
             error=(
-                "Impossible de lire le profil. "
-                "Vérifie les tables et les règles RLS."
+                "Unable to read your profile. "
+                "Check the database tables and access policies."
             )
         ), 502
 
@@ -78,12 +78,12 @@ def get_me():
         profiles = response.json()
     except ValueError:
         return jsonify(
-            error="Réponse invalide de la base de données."
+            error="Invalid database response."
         ), 502
 
     if not isinstance(profiles, list):
         return jsonify(
-            error="Format du profil inattendu."
+            error="Unexpected profile format."
         ), 502
 
     result = jsonify(

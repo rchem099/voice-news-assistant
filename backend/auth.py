@@ -24,13 +24,13 @@ def require_auth(view):
             len(parts) != 2
             or parts[0].lower() != "bearer"
         ):
-            return jsonify(error="Connexion requise."), 401
+            return jsonify(error="Sign in required."), 401
 
         token = parts[1]
 
         if not SUPABASE_URL or not SUPABASE_KEY:
             return jsonify(
-                error="Configuration Supabase manquante côté serveur."
+                error="Server Supabase configuration is missing."
             ), 503
 
         headers = {
@@ -47,29 +47,29 @@ def require_auth(view):
             )
         except requests.RequestException:
             return jsonify(
-                error="Service d’authentification indisponible."
+                error="Authentication service is unavailable."
             ), 503
 
         if response.status_code in (401, 403):
             return jsonify(
-                error="Session invalide ou expirée. Reconnecte-toi."
+                error="Your session is invalid or expired. Please sign in again."
             ), 401
 
         if response.status_code != 200:
             return jsonify(
-                error="Impossible de vérifier la session auprès de Supabase."
+                error="Unable to verify your session."
             ), 502
 
         try:
             user = response.json()
         except ValueError:
             return jsonify(
-                error="Réponse d’authentification invalide."
+                error="Invalid authentication response."
             ), 502
 
         if not isinstance(user, dict) or not user.get("id"):
             return jsonify(
-                error="Utilisateur non identifié."
+                error="User not authenticated."
             ), 401
 
         # 3. Conserver l’identité pour cette requête seulement.

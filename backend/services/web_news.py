@@ -40,7 +40,7 @@ def safe_url(value):
 def search_web(context, start, end):
     key = os.getenv('OPENAI_API_KEY', '').strip()
     if not key:
-        raise GenerationError('La clé OpenAI est absente de la configuration serveur.')
+        raise GenerationError('The OpenAI API key is missing from the server configuration.')
     model = os.getenv('OPENAI_SEARCH_MODEL') or os.getenv('OPENAI_MODEL', 'gpt-4.1-mini')
     try:
         with OpenAI(api_key=key, timeout=90, max_retries=0) as client:
@@ -78,11 +78,11 @@ def search_web(context, start, end):
                 store=False,
             )
         if response.status != 'completed':
-            raise GenerationError('La recherche web est incomplète. Réessayez.')
+            raise GenerationError('The web search is incomplete. Please try again.')
         payload = response.model_dump()
         calls = [x for x in payload['output'] if x.get('type') == 'web_search_call']
         if not any(x.get('status') == 'completed' for x in calls):
-            raise GenerationError('Aucune recherche web terminée : réponse refusée.')
+            raise GenerationError('The answer was rejected because no web search completed.')
         sources = {}
         for item in payload['output']:
             if item.get('type') == 'message':
@@ -95,9 +95,9 @@ def search_web(context, start, end):
     except OpenAIError as error:
         # Never expose raw provider errors, request headers or credentials.
         raise GenerationError(
-            'Recherche web indisponible. Vérifiez le modèle OPENAI_SEARCH_MODEL, '
-            'sa compatibilité avec web_search, les accès et le quota OpenAI. '
-            'Aucune réponse sans recherche ne sera générée.'
+            'Web search is unavailable. Check OPENAI_SEARCH_MODEL, '
+            'its web_search compatibility, access permissions and OpenAI quota. '
+            'No answer will be generated without a completed search.'
         ) from error
 
 
@@ -142,7 +142,7 @@ def answer_from_web(question, history, briefing, *, now=None):
     if not period.explicit:
         period.start, period.end = today - timedelta(days=6), today
     if period.start > period.end or period.end > today:
-        raise GenerationError('La période demandée est invalide ou future. Précisez des dates passées.')
+        raise GenerationError('The requested date range is invalid or in the future. Please specify past dates.')
     stories = retrieve(context, period.start, period.end)
     expanded = not stories and not period.explicit
     if expanded:

@@ -4,6 +4,8 @@ type SpeechCallbacks = {
   onError: (message: string) => void
 }
 
+const PREFERRED_VOICE = 'Google US English'
+
 let generation = 0
 let currentUtterance: SpeechSynthesisUtterance | null = null
 
@@ -74,19 +76,23 @@ function loadVoices(): Promise<SpeechSynthesisVoice[]> {
   const synth = window.speechSynthesis
   const available = synth.getVoices()
 
-  if (available.length > 0) {
+  if (available.some((voice) => voice.name === PREFERRED_VOICE)) {
     return Promise.resolve(available)
   }
 
   return new Promise((resolve) => {
     const finish = () => {
       window.clearTimeout(timer)
-      synth.removeEventListener('voiceschanged', finish)
+      synth.removeEventListener('voiceschanged', checkPreferred)
       resolve(synth.getVoices())
     }
 
+    const checkPreferred = () => {
+      if (synth.getVoices().some((voice) => voice.name === PREFERRED_VOICE)) finish()
+    }
     const timer = window.setTimeout(finish, 1500)
-    synth.addEventListener('voiceschanged', finish)
+    synth.addEventListener('voiceschanged', checkPreferred)
+    checkPreferred()
   })
 }
 
@@ -115,20 +121,12 @@ export async function speakEnglish(
     return
   }
 
-  // Préférer une voix anglaise installée sur l’appareil.
-  const voice =
-    voices.find(
-      (item) => item.name === 'Google US English',
-    ) ??
-    voices.find(
-      (item) =>
-        item.name.startsWith('Reed') &&
-        item.lang === 'en-US',
-    )
+  // Keep the requested voice; never silently substitute Reed.
+  const voice = voices.find((item) => item.name === PREFERRED_VOICE)
 
   if (!voice) {
     callbacks.onError(
-      'No English voice is available. Enable an English system voice, then reload.',
+      'Google US English is unavailable in this browser. Open the app in Chrome on your Mac to use this voice, then click Play voice.',
     )
     return
   }

@@ -23,10 +23,10 @@ export default function LoginForm() {
       if (error) {
         if (error.code === 'email_not_confirmed') {
           setMessage(
-            'Confirme ton adresse e-mail avant de te connecter.'
+            'Please confirm your email address before signing in.'
           )
         } else if (error.code === 'invalid_credentials') {
-          setMessage('Adresse e-mail ou mot de passe incorrect.')
+          setMessage('Incorrect email address or password.')
         } else {
           setMessage(error.message)
         }
@@ -38,7 +38,7 @@ export default function LoginForm() {
       setPassword('')
     } catch {
       setMessage(
-        'Impossible de joindre Supabase. Vérifie ta connexion Internet.'
+        'Unable to connect. Please check your internet connection.'
       )
     } finally {
       setLoading(false)
@@ -47,7 +47,7 @@ export default function LoginForm() {
 
   return (
     <section>
-      <h2>Me connecter</h2>
+      <h2>Sign in</h2>
 
       <form
         onSubmit={handleLogin}
@@ -58,7 +58,7 @@ export default function LoginForm() {
         }}
       >
         <label>
-          Adresse e-mail
+          Email address
           <input
             type="email"
             autoComplete="email"
@@ -75,7 +75,7 @@ export default function LoginForm() {
         </label>
 
         <label>
-          Mot de passe
+          Password
           <input
             type="password"
             autoComplete="current-password"
@@ -92,7 +92,7 @@ export default function LoginForm() {
         </label>
 
         <button type="submit" disabled={loading}>
-          {loading ? 'Connexion en cours…' : 'Me connecter'}
+          {loading ? 'Signing in…' : 'Sign in'}
         </button>
 
         <p role="status" aria-live="polite">

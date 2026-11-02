@@ -11,11 +11,13 @@ const source = ts.transpileModule(readFileSync(new URL('../src/services/speech.t
 function setup(voices = []) {
   const timers = new Map()
   const spoken = []
+  const listeners = new Map()
   let timerId = 0
   const synth = {
     cancel() {}, resume() {}, pause() {},
     getVoices: () => voices,
-    addEventListener() {}, removeEventListener() {},
+    addEventListener(name, callback) { listeners.set(name, callback) },
+    removeEventListener(name) { listeners.delete(name) },
     speak: (utterance) => spoken.push(utterance),
   }
   class Utterance { constructor(text) { this.text = text } }
@@ -29,7 +31,7 @@ function setup(voices = []) {
   }
   vm.runInNewContext(source, context)
   const events = []
-  return { api: context.exports, spoken, timers, events, callbacks: {
+  return { api: context.exports, spoken, timers, events, listeners, callbacks: {
     onStart: () => events.push('started'), onEnd: () => events.push('ended'),
     onError: (message) => events.push(message),
   } }
@@ -48,10 +50,27 @@ test('restores original Google US English preference', async () => {
   assert.deepEqual(state.events, ['started', 'ended'])
 })
 
-test('preserves original Reed fallback', async () => {
+test('does not silently substitute Reed when the requested voice is absent', async () => {
   const state = setup([reed])
-  await state.api.speakEnglish('Here is the news.', state.callbacks)
-  assert.equal(state.spoken[0].voice, reed)
+  const reading = state.api.speakEnglish('Here is the news.', state.callbacks)
+  ;[...state.timers.values()][0]()
+  await reading
+  assert.equal(state.spoken.length, 0)
+  assert.match(state.events[0], /Google US English is unavailable/)
+})
+
+test('waits for Google voices even when a system voice is already loaded', async () => {
+  const voices = [reed]
+  const state = setup(voices)
+  const reading = state.api.speakEnglish('Here is the news.', state.callbacks)
+  assert.equal(state.spoken.length, 0)
+  state.listeners.get('voiceschanged')()
+  assert.equal(state.spoken.length, 0)
+  voices.push(google)
+  state.listeners.get('voiceschanged')()
+  await reading
+  assert.equal(state.spoken[0].voice, google)
+  assert.equal(state.listeners.size, 0)
 })
 
 test('stopping ignores late events', async () => {

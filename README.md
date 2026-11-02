@@ -238,7 +238,7 @@ et sa date de publication. Les liens et titres viennent des annotations
 de citation de l’outil web ; les URL proposées uniquement par la génération
 sont rejetées. Les liens sont affichés dans le volet Sources existant.
 La lecture conserve la sélection de voix anglaise d’origine : Google US
-English en priorité, puis Reed en-US. Les réponses et les bulletins sont en anglais.
+English uniquement, sans remplacement automatique par Reed. Les réponses et les bulletins sont en anglais.
 
 La transcription reste locale et inchangée : `faster-whisper`, `base.en`,
 questions vocales en anglais. Les réponses aux questions sont en anglais.

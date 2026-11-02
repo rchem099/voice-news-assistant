@@ -9,7 +9,7 @@ type Status = 'loading' | 'success' | 'error'
 export default function EmailConfirmation() {
   const [status, setStatus] = useState<Status>('loading')
   const [message, setMessage] = useState(
-    'Vérification de ton adresse e-mail…'
+    'Verifying your email address…'
   )
 
   useEffect(() => {
@@ -21,8 +21,8 @@ export default function EmailConfirmation() {
           setStatus('error')
           setMessage(
             confirmationError === 'otp_expired'
-              ? 'Ce lien est invalide, expiré ou a déjà été utilisé. Si ton adresse est déjà confirmée, tu peux te connecter. Sinon, demande un nouveau lien.'
-              : 'La confirmation n’a pas abouti. Retourne à l’accueil pour demander un nouveau lien.'
+              ? 'This link is invalid, expired or already used. If your email is already confirmed, you can sign in. Otherwise, request a new link.'
+              : 'Confirmation failed. Return to the home page to request a new link.'
           )
         }
 
@@ -38,7 +38,7 @@ export default function EmailConfirmation() {
         if (error || !data.user) {
           setStatus('error')
           setMessage(
-            'Impossible de vérifier la confirmation. Vérifie ta connexion Internet et ouvre le lien du dernier e-mail reçu.'
+            'Unable to verify your email. Check your internet connection and open the link in your latest confirmation email.'
           )
           return
         }
@@ -46,20 +46,20 @@ export default function EmailConfirmation() {
         if (!data.user.email_confirmed_at) {
           setStatus('error')
           setMessage(
-            'Ton adresse e-mail n’est pas encore confirmée. Demande un nouveau lien depuis le formulaire d’inscription.'
+            'Your email address is not confirmed yet. Request a new link from the sign-up form.'
           )
           return
         }
 
         setStatus('success')
         setMessage(
-          'Votre adresse e-mail a été vérifiée. Vous pouvez maintenant continuer vers l’application.'
+          'Your email address has been verified. You can now continue to the app.'
         )
       } catch {
         if (active) {
           setStatus('error')
           setMessage(
-            'Impossible de joindre Supabase. Vérifie ta connexion Internet, puis réessaie.'
+            'Unable to connect. Check your internet connection and try again.'
           )
         }
       }
@@ -85,9 +85,9 @@ export default function EmailConfirmation() {
       }}
     >
       <h1>
-        {status === 'loading' && 'Vérification en cours'}
-        {status === 'success' && 'Adresse e-mail vérifiée'}
-        {status === 'error' && 'Confirmation à vérifier'}
+        {status === 'loading' && 'Verification in progress'}
+        {status === 'success' && 'Email address verified'}
+        {status === 'error' && 'Email confirmation needs attention'}
       </h1>
 
       <p role="status" aria-live="polite">
@@ -107,7 +107,7 @@ export default function EmailConfirmation() {
             textDecoration: 'none',
           }}
         >
-          Retourner à l’accueil
+          Return to home
         </a>
       )}
     </main>

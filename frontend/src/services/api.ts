@@ -7,7 +7,7 @@ export async function authenticatedFetch(
   const { data, error } = await supabase.auth.getSession()
 
   if (error || !data.session) {
-    throw new Error('Tu dois te connecter.')
+    throw new Error('Please sign in.')
   }
 
   const headers = new Headers(options.headers)
@@ -26,7 +26,7 @@ export async function authenticatedFetch(
     const body = await response.json().catch(() => null)
 
     throw new Error(
-      body?.error || `Erreur du serveur : ${response.status}`
+      body?.error || `Server error: ${response.status}`
     )
   }
 
